@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if [ "$1" = "" ];
+then
+echo "Usage: compile [disk name] [bootloader name]"
+exit
+fi
+
+echo
+if [ ! -f $1 ]; then
+echo "No Disk! Creating standard sized disk"
+echo
+dd if=/dev/zero of="$1" bs=1024 count=1440
+echo "Formatting..."
+fdisk -a dos disk.img
+echo
+fi
+
+echo "Compiling the Bootloader"
+
+nasm -f bin "$2" -o bootsector.bin
+
+if [ ! -f bootsector.bin ]; then
+echo "Exiting..."
+exit 0
+fi
+
+size=`wc -c < bootsector.bin | tr -d " "`
+
+if (($size > 510)); then
+echo "Bootsector too large ($size bytes)! Cannot copy to $1"
+else
+echo "Copying Bootsector to $1 ($size)"
+dd if=bootsector.bin of="$1" bs=446 count=1 seek=0 conv=notrunc
+fi
+
+echo -e -n  "\xAA\x55" | dd bs=446 seek=1 of=disk.img conv=notrunc
+
+hexdump -C -n 512 disk.img
+
+
+
+
